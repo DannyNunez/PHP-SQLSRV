@@ -1,9 +1,8 @@
-
+<?php
 /**
  * @version 0.1
  * @author Danny Nunez
  */
- 
 class SqlSrv
 {
 
@@ -49,7 +48,7 @@ class SqlSrv
      * Closes an open connection and releases resourses associated with the connection.
      * @return Returns TRUE on success or FALSE on failure.
      */
-    public function __destruct()
+    public function close()
     {
         if ($this->connection) {
             sqlsrv_close($this->connection);
@@ -64,22 +63,9 @@ class SqlSrv
      * @todo Fix error handling to make sure the user never sees any errors. 
      * @link http://www.php.net/manual/en/function.sqlsrv-prepare.php
      */
-    public function prepare($query, array $params)
+    public function prepare($query)
     {
-        if (!empty($params)) {
-            $a_array = array();
-            foreach ($params as $key => &$val) {
-                $a_array[] = &$val;
-            }
-            $prepStmt = sqlsrv_prepare($this->connection, $query, $a_array);
-        } else {
-            $prepStmt = sqlsrv_prepare($this->connection, $query);
-        }
-        if (!$prepStmt) {
-            die(print_r(sqlsrv_errors(), true));
-        }
-
-        return $prepStmt;
+        return sqlsrv_prepare($this->connection, $query);
     }
 
     /**
@@ -88,13 +74,22 @@ class SqlSrv
      * @link http://www.php.net/manual/en/function.sqlsrv-execute.php
      * @return Returns TRUE on success or FALSE on failure
      */
-    public function execute($prepStmt)
+    public function execute($preparedStatement)
     {
-        if (sqlsrv_execute($prepStmt) === true) {
+        if (sqlsrv_execute($preparedStatement) === true) {
             return true;
         } else {
             return false;
         }
+    }
+
+    public function getResults($preparedStatement)
+    {
+        $results = array();
+        while ($row = sqlsrv_fetch_array($preparedStatement, SQLSRV_FETCH_ASSOC)) {
+            $results[] = $row;
+        }
+        return $results; 
     }
 
     /**
@@ -218,16 +213,28 @@ class SqlSrv
      * @return ARRAY - This method will return an associative or numeric array is results are returned.
      * By default an associative array will be returned. 
      */
-    public function get($tableName, $type = 'SQLSRV_FETCH_ASSOC', $order = 'DESC')
+    public function get($tableName, $feilds = '*', $type = SQLSRV_FETCH_ASSOC, $order = 'DESC')
     {
 
-        $sql = "SELECT * FROM $tableName ORDER BY $order";
+        if (is_array($feilds)) {
+            $feildsString = $this->feildsBuilder($feilds);
+        } else {
+            $feildsString = '*';
+        }
+
+        $sql = "SELECT $feildsString FROM $tableName ORDER BY id $order";
         $preparedStatement = sqlsrv_prepare($this->connection, $sql);
-        $result = $this->execute($preparedStatement);
+        $result = sqlsrv_execute($preparedStatement);
         $results = array();
         if ($result === true) {
-            while ($row = sqlsrv_fetch_array($preparedStatement, $type)) {
-                $results[] = $row;
+            if ($type == SQLSRV_FETCH_ASSOC) {
+                while ($row = sqlsrv_fetch_array($preparedStatement, SQLSRV_FETCH_ASSOC)) {
+                    $results[] = $row;
+                }
+            } else {
+                while ($row = sqlsrv_fetch_array($preparedStatement, SQLSRV_FETCH_NUMERIC)) {
+                    $results[] = $row;
+                }
             }
             return $results;
         } else {
@@ -243,13 +250,16 @@ class SqlSrv
      * @return ARRAY - This method will return an associative or numeric array is results are returned.
      * By default an associative array will be returned. 
      */
-    public function get_by_id($tableName, $Id = null, $type = 'SQLSRV_FETCH_ASSOC')
+    public function get_by_id($tableName, $id = null)
     {
-        $sql = "SELECT * FROM $tableName WHERE id = $Id";
+        $sql = "SELECT * FROM $tableName WHERE id = $id";
         $preparedStatement = sqlsrv_prepare($this->connection, $sql);
-        $result = $this->execute($preparedStatement);
+        $result = sqlsrv_execute($preparedStatement);
         if ($result === true) {
-            return sqlsrv_fetch_array($preparedStatement, $type);
+            while ($row = sqlsrv_fetch_array($preparedStatement, SQLSRV_FETCH_ASSOC)) {
+                $results = $row;
+            }
+            return $results;
         } else {
             return false;
         }
@@ -273,7 +283,7 @@ class SqlSrv
         $result = $this->execute($preparedStatement);
         $results = array();
         if ($result === true) {
-            while ($row = sqlsrv_fetch_array($preparedStatement, $type)) {
+            while ($row = sqlsrv_fetch_array($preparedStatement, SQLSRV_FETCH_ASSOC)) {
                 $results[] = $row;
             }
             return $results;
@@ -282,20 +292,36 @@ class SqlSrv
         }
     }
 
-    public function querry_builder($keyValue)
+    public function query_builder($keyValue)
     {
         $sqlString = '';
         $numberOfKeyValues = count($keyValue);
-        $count = 1; 
+        $count = 1;
         foreach ($keyValue as $key => $value) {
-            if($count == $numberOfKeyValues ){
-               $sqlString = $sqlString . $key . ' = ' .  $value . ' '; 
-            }else{
-                $sqlString = $sqlString . $key . ' = ' .  $value . ' AND '; 
+            if ($count == $numberOfKeyValues) {
+                $sqlString = $sqlString . $key . ' = ' . $value . ' ';
+            } else {
+                $sqlString = $sqlString . $key . ' = ' . $value . ' AND ';
             }
             $count++;
         }
-        return $sqlString; 
+        return $sqlString;
+    }
+
+    public function feildsBuilder($feilds)
+    {
+        $feildsString = '';
+        $numberOfFeilds = count($feilds);
+        $count = 1;
+        foreach ($feilds as $value) {
+            if ($count == $numberOfFeilds) {
+                $feildsString = $feildsString . $value . ' ';
+            } else {
+                $feildsString = $feildsString . $value . ' , ';
+            }
+            $count++;
+        }
+        return $feildsString;
     }
 
 }
