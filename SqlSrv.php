@@ -269,16 +269,17 @@ class SqlSrv
      * @param String $tableName - The name of the table. 
      * @param Array $keyValue - An associative array. The key is the feild name and the value is the field value.   
      * @param STRING $type - The return type wanted. SQLSRV_FETCH_ASSOC
+     * @param STRING $field - The field to order by.
      * @param String $order - Order the results either ASC or DESC. DESC is the default 
      * OR SQLSRV_FETCH_NUMERIC - See http://www.php.net/manual/en/function.sqlsrv-fetch-array.php
      * @return ARRAY - This method will return an associative or numeric array is results are returned.
      * By default an associative array will be returned.
      * @todo  Build a querry builder to handle mulitple key value pairs. Currently only handles on set of keyvalues. 
      */
-    public function get_where($tableName, $keyValue, $type = 'SQLSRV_FETCH_ASSOC', $order = 'DESC')
+    public function get_where($tableName, $keyValue, $type = 'SQLSRV_FETCH_ASSOC', $field = 'id' , $order = 'DESC')
     {
-        $sqlString = $this->querry_builder($keyValue);
-        $sql = "SELECT * FROM $tableName WHERE $sqlString ORDER BY $order";
+        $sqlString = $this->query_builder($keyValue);
+        $sql = "SELECT * FROM $tableName WHERE $sqlString ORDER BY $field $order";
         $preparedStatement = sqlsrv_prepare($this->connection, $sql);
         $result = $this->execute($preparedStatement);
         $results = array();
